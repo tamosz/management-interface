@@ -1606,7 +1606,8 @@ func (api *ManagementAPI) SetSaltGrains(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, "Salt is not yet ready to set grains", http.StatusInternalServerError)
 			return
 		}
-		cmd := exec.Command("salt-call", "grains.setval", key, value)
+		// Run locally so if there is no internet connection it can still be updated.
+		cmd := exec.Command("salt-call", "--local", "grains.setval", key, value)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			http.Error(w, fmt.Sprintf("failed to set grain: %s, output: %s", err, output), http.StatusInternalServerError)
 			return
