@@ -1066,7 +1066,7 @@ func getActiveWifiInterface() (string, error) {
 	if iface, err := getActiveWifiInterfaceNMCLI(); err == nil {
 		log.Printf("Detected Wi-Fi interface via nmcli: %s", iface)
 		return iface, nil
-	} else if err != nil {
+	} else {
 		log.Printf("nmcli detection failed: %v", err)
 	}
 	iface, err := getActiveWifiInterfaceFromNet()
@@ -1317,9 +1317,6 @@ func (api *ManagementAPI) DisconnectFromWifi(w http.ResponseWriter, r *http.Requ
 	}
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, "disconnecting from Wi-Fi network\n")
-	if err != nil {
-		log.Fatalf("Error getting state changes: %v", err)
-	}
 	go func() {
 		if err := netmanagerclient.DisconnectWifiNetwork(currentSSID, true); err != nil {
 			log.Printf("Error removing Wi-Fi network: %v", err)
