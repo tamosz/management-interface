@@ -89,7 +89,7 @@ func getDeviceName() string {
 	return strings.SplitN(name, ".", 2)[0]
 }
 
-// Return the serial number for the Raspberr Pi in the device.
+// Return the serial number for the Raspberry Pi in the device.
 func getRaspberryPiSerialNumber() string {
 	if runtime.GOOS == "windows" {
 		return ""

@@ -366,7 +366,7 @@ func handleConn(conn net.Conn) error {
 			log.Println("Error reading frame ", err)
 			return err
 		}
-		if len(sockets) == 0 {
+		if !hasActiveClients() {
 			continue
 		}
 		if err := lepton3.ParseRawFrame(rawFrame, frame, 0); err != nil {
@@ -469,9 +469,11 @@ func WebsocketServer(ws *websocket.Conn) {
 				}
 			}
 			if message.Type == "Heartbeat" {
+				socketsLock.Lock()
 				if socket, ok := sockets[message.Uuid]; ok {
 					socket.LastHeartbeatAt = time.Now()
 				}
+				socketsLock.Unlock()
 			}
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -496,7 +498,7 @@ func sendFrameToSockets() {
 		// NOTE: Only bother with this work if we have clients connected.
 		lastFrame = <-frameCh
 
-		if len(sockets) != 0 {
+		if hasActiveClients() {
 			if lastFrame.Disconnected {
 				socketsLock.RLock()
 				for uuid, socket := range sockets {
