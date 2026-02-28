@@ -154,6 +154,44 @@
             </div>
         </div>
 
+        <div class="container pt-5 pb-4 pl-0">
+            <h3>Hardware<br></h3>
+        </div>
+
+        <div class="row">
+            <div class="col-xs-8">
+                <div class="table-responsive">
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <td>Raspberry Pi Model</td>
+                                <td>{{if .RaspberryPiModel}}{{.RaspberryPiModel}}{{else}}N/A{{end}}</td>
+                            </tr>
+                            <tr>
+                                <td>Installed RAM</td>
+                                <td>{{if .InstalledRAM}}{{.InstalledRAM}}{{else}}N/A{{end}}</td>
+                            </tr>
+                            <tr>
+                                <td>SD Card Size</td>
+                                <td>{{if .SDCardSize}}{{.SDCardSize}}{{else}}N/A{{end}}</td>
+                            </tr>
+                            <tr>
+                                <td>Camera</td>
+                                <td>{{if .CameraBrand}}{{.CameraBrand}} {{.CameraModel}}{{else}}Not connected{{end}}</td>
+                            </tr>
+                            <tr>
+                                <td>ATTiny Firmware Version</td>
+                                <td>{{if .ATTinyVersion}}{{.ATTinyVersion}}{{else}}N/A{{end}}</td>
+                            </tr>
+                            <tr>
+                                <td>PCB Hat Version</td>
+                                <td>{{if .PCBHatVersion}}{{.PCBHatVersion}}{{else}}N/A{{end}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
     </div>
 

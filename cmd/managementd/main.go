@@ -166,7 +166,12 @@ func main() {
 	router.HandleFunc("/low-power-thermal-recording", managementinterface.LowPowerThermalRecordingHandler).Methods("GET") // Form to view and/or set audio recording manually.
 	router.HandleFunc("/location", managementinterface.GenLocationHandler(config.config)).Methods("GET")                  // Form to view and/or set location manually.
 	router.HandleFunc("/clock", managementinterface.TimeHandler).Methods("GET")                                           // Form to view and/or adjust time settings.
-	router.HandleFunc("/about", managementinterface.AboutHandlerGen(config.config)).Methods("GET")
+	router.HandleFunc("/about", managementinterface.AboutHandlerGen(config.config, func() *managementinterface.CameraInfo {
+		if headerInfo == nil {
+			return nil
+		}
+		return &managementinterface.CameraInfo{Brand: headerInfo.Brand(), Model: headerInfo.Model()}
+	})).Methods("GET")
 	router.HandleFunc("/advanced", managementinterface.AdvancedMenuHandler).Methods("GET")
 	router.HandleFunc("/camera", managementinterface.CameraHandler).Methods("GET")
 	router.HandleFunc("/camera/snapshot", managementinterface.CameraSnapshot).Methods("GET")

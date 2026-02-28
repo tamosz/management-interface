@@ -19,7 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package managementinterface
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"net"
@@ -152,6 +154,86 @@ func readFile(file string) string {
 		return ""
 	}
 	return string(out)
+}
+
+// CameraInfo holds the brand and model of the connected camera.
+type CameraInfo struct {
+	Brand string
+	Model string
+}
+
+// Return the Raspberry Pi model string.
+func getRaspberryPiModel() string {
+	model := readFile("/proc/device-tree/model")
+	return strings.TrimRight(model, "\x00 \n")
+}
+
+// Return installed RAM as a human-readable string (e.g. "4 GB").
+func getInstalledRAM() string {
+	if runtime.GOOS == "windows" {
+		return ""
+	}
+	file, err := os.Open("/proc/meminfo")
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "MemTotal:") {
+			fields := strings.Fields(line)
+			if len(fields) < 2 {
+				return ""
+			}
+			kB, err := strconv.ParseInt(fields[1], 10, 64)
+			if err != nil {
+				return ""
+			}
+			gb := float64(kB) / 1024 / 1024
+			if gb >= 1 {
+				return fmt.Sprintf("%.0f GB", gb)
+			}
+			return fmt.Sprintf("%.0f MB", float64(kB)/1024)
+		}
+	}
+	return ""
+}
+
+// Return the SD card size as a human-readable string (e.g. "32 GB").
+func getSDCardSize() string {
+	sizeStr := strings.TrimSpace(readFile("/sys/block/mmcblk0/size"))
+	if sizeStr == "" {
+		return ""
+	}
+	sectors, err := strconv.ParseInt(sizeStr, 10, 64)
+	if err != nil {
+		return ""
+	}
+	bytes := sectors * 512
+	gb := float64(bytes) / 1000 / 1000 / 1000
+	return fmt.Sprintf("%.0f GB", gb)
+}
+
+// Return a value from /etc/salt/grains for the given key.
+func getSaltGrain(key string) string {
+	if runtime.GOOS == "windows" {
+		return ""
+	}
+	file, err := os.Open("/etc/salt/grains")
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) == 2 && strings.TrimSpace(parts[0]) == key {
+			return strings.TrimSpace(parts[1])
+		}
+	}
+	return ""
 }
 
 // Return info on the disk space available, disk space used etc.
@@ -367,14 +449,14 @@ func WifiNetworkHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // AboutHandlerGen is a wrapper for the AboutHandler function.
-func AboutHandlerGen(conf *goconfig.Config) func(http.ResponseWriter, *http.Request) {
+func AboutHandlerGen(conf *goconfig.Config, getCameraInfo func() *CameraInfo) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		AboutHandler(w, r, conf)
+		AboutHandler(w, r, conf, getCameraInfo)
 	}
 }
 
 // AboutHandler shows the currently installed packages on the device.
-func AboutHandler(w http.ResponseWriter, r *http.Request, conf *goconfig.Config) {
+func AboutHandler(w http.ResponseWriter, r *http.Request, conf *goconfig.Config, getCameraInfo func() *CameraInfo) {
 
 	type aboutResponse struct {
 		RaspberryPiSerialNumber string
@@ -385,6 +467,13 @@ func AboutHandler(w http.ResponseWriter, r *http.Request, conf *goconfig.Config)
 		SaltNodegroup           string
 		PackageDataRows         [][]string
 		ErrorMessage            string
+		RaspberryPiModel        string
+		InstalledRAM            string
+		SDCardSize              string
+		CameraBrand             string
+		CameraModel             string
+		ATTinyVersion           string
+		PCBHatVersion           string
 	}
 
 	// Get the device group from the API
@@ -404,6 +493,16 @@ func AboutHandler(w http.ResponseWriter, r *http.Request, conf *goconfig.Config)
 		DeviceID:                device.ID,
 		LastSaltUpdate:          getLastSaltUpdate(),
 		SaltNodegroup:           readFile("/etc/cacophony/salt-nodegroup"),
+		RaspberryPiModel:        getRaspberryPiModel(),
+		InstalledRAM:            getInstalledRAM(),
+		SDCardSize:              getSDCardSize(),
+		PCBHatVersion:           getSaltGrain("hat-version"),
+	}
+
+	// Get camera info if available.
+	if camInfo := getCameraInfo(); camInfo != nil {
+		resp.CameraBrand = camInfo.Brand
+		resp.CameraModel = camInfo.Model
 	}
 
 	// Get installed packages.
@@ -411,6 +510,7 @@ func AboutHandler(w http.ResponseWriter, r *http.Request, conf *goconfig.Config)
 	if err != nil {
 		resp.ErrorMessage = errorMessage(err)
 		tmpl.ExecuteTemplate(w, "about.html", resp)
+		return
 	}
 	log.Printf("Packages are %v", packages)
 	keys := make([]string, len(packages))
@@ -427,6 +527,11 @@ func AboutHandler(w http.ResponseWriter, r *http.Request, conf *goconfig.Config)
 		data[index] = []string{key, packages[key].(string)}
 	}
 	resp.PackageDataRows = data
+
+	// Get ATTiny firmware version from installed packages.
+	if v, ok := packages["tc2-hat-attiny"]; ok {
+		resp.ATTinyVersion = v.(string)
+	}
 
 	tmpl.ExecuteTemplate(w, "about.html", resp)
 }
